@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <title>lua_diff.lua</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="locco.css" />
+</head>
+<body>
+  <div id="container">
+    <div id="background"></div>
+    
+    <table cellpadding="0" cellspacing="0">
+      <thead>
+        <tr>
+          <th class="docs">
+            <h1>
+              lua_diff.lua
+            </h1>
+          </th>
+          <th class="code">
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+<tr id="section-1">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-1">&#182;</a>
+  </div>
+  
+<p>Provides functions for diffing text.</p>
+
+<p>&copy; 2007, 2008  Yuri Takhteyev (yuri@freewisdom.org)<br>
+&copy; 2007 Hisham Muhammad<br>
+Adapted to MediaWiki LUA: <a href="https://en.wikipedia.org/wiki/User:Ebraminio">User:Ebraminio</a> (ebrahim@gnu.org)</p>
+
+<p>License: MIT/X, see <a href="http://sputnik.freewisdom.org/en/License">http://sputnik.freewisdom.org/en/License</a></p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>
+SKIP_SEPARATOR = <span class="k">true</span>  <span class="c">-- a constant
+</span>
+IN   = <span class="s">"in"</span>; OUT  = <span class="s">"out"</span>; SAME = <span class="s">"same"</span>  <span class="c">-- token statuses
+</span></pre></div>
+</td>
+</tr><tr id="section-2">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-2">&#182;</a>
+  </div>
+  
+<p>Find the first position of a CJK character or a separator</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">special_find</span>(text, separator, start)
+  separator = <span class="s">'^'</span> .. separator
+  <span class="k">for</span> codepoint <span class="k">in</span> mw.ustring.gcodepoint(text, start) <span class="k">do</span>
+</pre></div>
+</td>
+</tr><tr id="section-3">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-3">&#182;</a>
+  </div>
+  
+<p>return the position of CJK character</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>    <span class="k">if</span> codepoint &gt; 0x2460 <span class="k">then</span> <span class="k">return</span> start <span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-4">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-4">&#182;</a>
+  </div>
+  
+<p>return start and end position of separator</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>    <span class="k">local</span> s, e = mw.ustring.find(text, separator, start)
+    <span class="k">if</span> s <span class="k">then</span> <span class="k">return</span> s, e <span class="k">end</span>
+    start = start + 1
+  <span class="k">end</span>
+<span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-5">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-5">&#182;</a>
+  </div>
+  
+<p>Split a string into tokens.  (Adapted from Gavin Kistner's split on
+<a href="http://lua-users.org/wiki/SplitJoin">http://lua-users.org/wiki/SplitJoin</a> .</p>
+
+<ul>
+    <li><em>text</em>: A string to be split.</li>
+    <li><em>separator</em>: [optional] the separator pattern (defaults to any white space - <code>&#37;s+</code>).</li>
+    <li>return: A list of tokens.</li>
+</ul>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">split</span>(text, separator)
+  separator = separator <span class="o">or</span> <span class="s">"&#37;s+"</span>
+  <span class="k">local</span> parts = {}
+  <span class="k">local</span> start = 1
+  <span class="k">local</span> split_start, split_end = special_find(text, separator, start)
+  <span class="k">while</span> split_start <span class="k">do</span>
+</pre></div>
+</td>
+</tr><tr id="section-6">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-6">&#182;</a>
+  </div>
+  
+<p><code>split_end</code> acts as a flag for separator found;
+if false, it means that a CJK character was found</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>    <span class="k">if</span> split_end <span class="k">then</span>
+      table.insert(parts, mw.ustring.sub(text, start, split_start-1))
+      table.insert(parts, mw.ustring.sub(text, split_start, split_end))
+      start = split_end + 1
+    <span class="k">else</span>
+      <span class="k">local</span> temp_str = mw.ustring.sub(text, start, split_start-1)
+      <span class="k">if</span> temp_str ~= <span class="s">''</span> <span class="k">then</span> table.insert(parts, temp_str) <span class="k">end</span>
+      table.insert(parts, mw.ustring.sub(text, split_start, split_start))
+      start = split_start + 1
+    <span class="k">end</span>
+    split_start, split_end = special_find(text, separator, start)
+  <span class="k">end</span>
+  <span class="k">if</span> mw.ustring.sub(text, start) ~= <span class="s">""</span> <span class="k">then</span>
+    table.insert(parts, mw.ustring.sub(text, start))
+  <span class="k">end</span>
+  <span class="k">return</span> parts
+<span class="k">end</span>
+
+</pre></div>
+</td>
+</tr><tr id="section-7">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-7">&#182;</a>
+  </div>
+  
+<p>Derives the longest common subsequence of two strings.  This is a faster
+implementation than one provided by stdlib.  Submitted by Hisham Muhammad.</p>
+
+<p>The algorithm was taken from:
+<a href="http://en.wikibooks.org/wiki/Algorithm_implementation/Strings/Longest_common_subsequence">http://en.wikibooks.org/wiki/Algorithm_implementation/Strings/Longest_common_subsequence</a></p>
+
+<ul>
+    <li><em>t1</em>: the first string.</li>
+    <li><em>t2</em>: the second string.</li>
+    <li>return: the least common subsequence as a matrix.</li>
+</ul>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">quick_LCS</span>(t1, t2)
+  <span class="k">local</span> m = #t1
+  <span class="k">local</span> n = #t2
+</pre></div>
+</td>
+</tr><tr id="section-8">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-8">&#182;</a>
+  </div>
+  
+<p>Build matrix on demand</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  <span class="k">local</span> C = {}
+  <span class="k">local</span> <span class="nt">setmetatable</span> = <span class="nt">setmetatable</span>
+  <span class="k">local</span> mt_tbl = {
+    __index = <span class="k">function</span>(t, k)
+      t[k] = 0
+      <span class="k">return</span> 0
+    <span class="k">end</span>
+  }
+  <span class="k">local</span> mt_C = {
+    __index = <span class="k">function</span>(t, k)
+      <span class="k">local</span> tbl = {}
+      <span class="nt">setmetatable</span>(tbl, mt_tbl)
+      t[k] = tbl
+      <span class="k">return</span> tbl
+    <span class="k">end</span>
+  }
+  <span class="nt">setmetatable</span>(C, mt_C)
+  <span class="k">local</span> max = math.max
+  <span class="k">for</span> i = 1, m+1 <span class="k">do</span>
+    <span class="k">local</span> ci1 = C[i+1]
+    <span class="k">local</span> ci = C[i]
+    <span class="k">for</span> j = 1, n+1 <span class="k">do</span>
+      <span class="k">if</span> t1[i-1] == t2[j-1] <span class="k">then</span>
+        ci1[j+1] = ci[j] + 1
+      <span class="k">else</span>
+        ci1[j+1] = max(ci1[j], ci[j+1])
+      <span class="k">end</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="k">return</span> C
+<span class="k">end</span>
+
+
+</pre></div>
+</td>
+</tr><tr id="section-9">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-9">&#182;</a>
+  </div>
+  
+<p>Formats an inline diff as HTML, with <code>&lt;ins&gt;</code> and <code>&lt;del&gt;</code> tags.</p>
+
+<ul>
+    <li><em>tokens</em>: a table of {token, status} pairs.</li>
+    <li>return: an HTML string.</li>
+</ul>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">format_as_html</span>(tokens)
+  <span class="k">local</span> diff_buffer = <span class="s">""</span>
+  <span class="k">local</span> token, status
+  <span class="k">for</span> i, token_record <span class="k">in</span> <span class="nt">ipairs</span>(tokens) <span class="k">do</span>
+    token = mw.text.nowiki(token_record[1])
+    status = token_record[2]
+    <span class="k">if</span> status == <span class="s">"in"</span> <span class="k">then</span>
+      diff_buffer = diff_buffer..<span class="s">'&lt;ins&gt;'</span>..token..<span class="s">'&lt;/ins&gt;'</span>
+    <span class="k">elseif</span> status == <span class="s">"out"</span> <span class="k">then</span>
+      diff_buffer = diff_buffer..<span class="s">'&lt;del&gt;'</span>..token..<span class="s">'&lt;/del&gt;'</span>
+    <span class="k">else</span> 
+      diff_buffer = diff_buffer..token
+    <span class="k">end</span>
+  <span class="k">end</span>
+  <span class="k">return</span> diff_buffer
+<span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-10">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-10">&#182;</a>
+  </div>
+  
+<p>Returns a diff of two strings as a list of pairs, where the first value
+represents a token and the second the token's status ("same", "in", "out").</p>
+
+<ul>
+    <li><em>old</em>: The "old" text string</li>
+    <li><em>new</em>: The "new" text string</li>
+    <li><em>separator</em>: [optional] the separator pattern (defaults ot any white space).</li>
+    <li>return: A list of annotated tokens.</li>
+</ul>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">diff</span>(old, new, separator)
+  <span class="nt">assert</span>(old); <span class="nt">assert</span>(new)
+  new = split(new, separator); old = split(old, separator)
+</pre></div>
+</td>
+</tr><tr id="section-11">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-11">&#182;</a>
+  </div>
+  
+<p>First, compare the beginnings and ends of strings to remove the common
+prefix and suffix.  Chances are, there is only a small number of tokens
+in the middle that differ, in which case  we can save ourselves a lot
+in terms of LCS computation.</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  <span class="k">local</span> prefix = <span class="s">""</span> <span class="c">-- common text in the beginning
+</span>  <span class="k">local</span> suffix = <span class="s">""</span> <span class="c">-- common text in the end
+</span>  <span class="k">while</span> old[1] <span class="o">and</span> old[1] == new[1] <span class="k">do</span>
+    <span class="k">local</span> token = table.remove(old, 1)
+    table.remove(new, 1)
+    prefix = prefix..token
+  <span class="k">end</span>
+  <span class="k">while</span> old[#old] <span class="o">and</span> old[#old] == new[#new] <span class="k">do</span>
+    <span class="k">local</span> token = table.remove(old)
+    table.remove(new)
+    suffix = token..suffix
+  <span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-12">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-12">&#182;</a>
+  </div>
+  
+<p>Setup a table that will store the diff (an upvalue for <code>get_diff</code>). We'll
+store it in the reverse order to allow for tail calls.  We'll also keep
+in this table functions to handle different events.</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  <span class="k">local</span> rev_diff = {
+    put  = <span class="k">function</span>(self, token, <span class="nt">type</span>) table.insert(self, {token,<span class="nt">type</span>}) <span class="k">end</span>,
+    ins  = <span class="k">function</span>(self, token) self:put(token, IN) <span class="k">end</span>,
+    del  = <span class="k">function</span>(self, token) self:put(token, OUT) <span class="k">end</span>,
+    same = <span class="k">function</span>(self, token) <span class="k">if</span> token <span class="k">then</span> self:put(token, SAME) <span class="k">end</span> <span class="k">end</span>,
+  }
+</pre></div>
+</td>
+</tr><tr id="section-13">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-13">&#182;</a>
+  </div>
+  
+<p>Put the suffix as the first token (we are storing the diff in the
+reverse order)</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>
+  rev_diff:same(suffix)
+</pre></div>
+</td>
+</tr><tr id="section-14">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-14">&#182;</a>
+  </div>
+  
+<p>Define a function that will scan the LCS matrix backwards and build the
+diff output recursively.</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  <span class="k">local</span> <span class="k">function</span> <span class="nf">get_diff</span>(C, old, new, i, j)
+    <span class="k">local</span> old_i = old[i]
+    <span class="k">local</span> new_j = new[j]
+    <span class="k">if</span> i &gt;= 1 <span class="o">and</span> j &gt;= 1 <span class="o">and</span> old_i == new_j <span class="k">then</span>
+      rev_diff:same(old_i)
+      <span class="k">return</span> get_diff(C, old, new, i-1, j-1)
+    <span class="k">else</span>
+      <span class="k">local</span> Cij1 = C[i][j-1]
+      <span class="k">local</span> Ci1j = C[i-1][j]
+      <span class="k">if</span> j &gt;= 1 <span class="o">and</span> (i == 0 <span class="o">or</span> Cij1 &gt;= Ci1j) <span class="k">then</span>
+        rev_diff:ins(new_j)
+        <span class="k">return</span> get_diff(C, old, new, i, j-1)
+      <span class="k">elseif</span> i &gt;= 1 <span class="o">and</span> (j == 0 <span class="o">or</span> Cij1 &lt; Ci1j) <span class="k">then</span>
+        rev_diff:del(old_i)
+        <span class="k">return</span> get_diff(C, old, new, i-1, j)
+      <span class="k">end</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-15">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-15">&#182;</a>
+  </div>
+  
+<p>Then call it.</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  get_diff(quick_LCS(old, new), old, new, #old + 1, #new + 1)
+</pre></div>
+</td>
+</tr><tr id="section-16">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-16">&#182;</a>
+  </div>
+  
+<p>Put the prefix in at the end</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  rev_diff:same(prefix)
+</pre></div>
+</td>
+</tr><tr id="section-17">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-17">&#182;</a>
+  </div>
+  
+<p>Reverse the diff.</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre>  <span class="k">local</span> diff = {}
+
+  <span class="k">for</span> i = #rev_diff, 1, -1 <span class="k">do</span>
+    table.insert(diff, rev_diff[i])
+  <span class="k">end</span>
+  diff.to_html = format_as_html
+  <span class="k">return</span> diff
+<span class="k">end</span>
+</pre></div>
+</td>
+</tr><tr id="section-18">
+<td class="docs">
+  <div class="pilwrap">
+    <a class="pilcrow" href="#section-18">&#182;</a>
+  </div>
+  
+<p>Wiki diff style, currently just for a line</p>
+
+
+</td>
+<td class="code">
+  <div class="highlight"><pre><span class="k">function</span> <span class="nf">wikiDiff</span>(old, new, separator)
+  <span class="k">local</span> tokens = diff(old, new, separator)
+  <span class="k">local</span> root = mw.html.create(<span class="s">''</span>)
+
+  <span class="k">local</span> token, status
+
+  <span class="k">local</span> plusMinusStyle = <span class="s">'width: 2&#37;; padding: 0.25em; font-weight: bold;'</span> ..
+    <span class="s">'font-size: 1.25em; text-align: end;'</span>
+  <span class="k">local</span> tdDivStyle = <span class="s">'word-wrap: break-word; direction: ltr;'</span>
+
+  <span class="k">local</span> tdSharedStyle = <span class="s">'width: 48&#37;; border-style: solid; border-radius: 0.33em; '</span> ..
+    <span class="s">'padding: 0.33em 0.5em; font-size: 88&#37;; white-space: pre-wrap; border-width: 1px 1px 1px 4px; '</span> ..
+    <span class="s">'-webkit-border-end-width: 1px; -webkit-border-start-width: 4px; '</span> ..
+    <span class="s">'-moz-border-end-width: 1px; -moz-border-start-width: 4px;'</span> <span class="c">-- these overrides default border-width for browsers supports them, needed for RTL UI on commons
+</span>  <span class="k">local</span> insDelSharedStyle = <span class="s">'padding: 0.25em 0; font-weight: bold; text-decoration: initial;'</span>
+
+
+  <span class="k">local</span> tr = root:tag(<span class="s">'table'</span>):addClass(<span class="s">'diff'</span>):css(<span class="s">'width'</span>, <span class="s">'100&#37;'</span>):tag(<span class="s">'tr'</span>)
+
+  tr:tag(<span class="s">'td'</span>)
+    :addClass(<span class="s">'diff-marker'</span>)
+    :cssText(plusMinusStyle)
+    :wikitext(<span class="s">'−'</span>)
+
+  <span class="k">local</span> deleted = tr
+    :tag(<span class="s">'td'</span>)
+      :cssText(<span class="s">'border-color: #ffe49c; '</span> .. tdSharedStyle)
+      :addClass(<span class="s">'diff-deletedline'</span>)
+      :tag(<span class="s">'div'</span>)
+        :cssText(tdDivStyle)
+
+  <span class="k">for</span> i, token_record <span class="k">in</span> <span class="nt">ipairs</span>(tokens) <span class="k">do</span>
+    token = mw.text.nowiki(token_record[1])
+    status = token_record[2]
+    <span class="k">if</span> status == OUT <span class="k">then</span>
+      deleted
+        :tag(<span class="s">'del'</span>)
+          :cssText(<span class="s">'background: #feeec8; '</span> .. insDelSharedStyle)
+          :addClass(<span class="s">'diffchange'</span>)
+          :addClass(<span class="s">'diffchange-inline'</span>)
+          :wikitext(token)
+    <span class="k">elseif</span> status == SAME <span class="k">then</span>
+      deleted:wikitext(token)
+    <span class="k">end</span>
+  <span class="k">end</span>
+
+  tr:tag(<span class="s">'td'</span>)
+    :cssText(plusMinusStyle)
+    :wikitext(<span class="s">'+'</span>)
+
+  <span class="k">local</span> inserted = tr
+    :tag(<span class="s">'td'</span>)
+      :cssText(<span class="s">'border-color: #a3d3ff; '</span> .. tdSharedStyle)
+      :addClass(<span class="s">'diff-addedline'</span>)
+      :tag(<span class="s">'div'</span>)
+        :cssText(tdDivStyle)
+
+  <span class="k">for</span> i, token_record <span class="k">in</span> <span class="nt">ipairs</span>(tokens) <span class="k">do</span>
+    token = mw.text.nowiki(token_record[1])
+    status = token_record[2]
+    <span class="k">if</span> status == IN <span class="k">then</span>
+      inserted
+        :tag(<span class="s">'ins'</span>)
+          :cssText(<span class="s">'background: #d8ecff; '</span> .. insDelSharedStyle)
+          :addClass(<span class="s">'diffchange'</span>)
+          :addClass(<span class="s">'diffchange-inline'</span>)
+          :wikitext(token)
+    <span class="k">elseif</span> status == SAME <span class="k">then</span>
+      inserted:wikitext(token)
+    <span class="k">end</span>
+  <span class="k">end</span>
+
+  <span class="k">return</span> <span class="nt">tostring</span>(root)
+<span class="k">end</span>
+
+<span class="k">function</span> <span class="nf">main</span>(frame)
+  <span class="k">return</span> wikiDiff(mw.text.unstrip(mw.text.decode(frame.args[1])),
+    mw.text.decode(mw.text.unstrip(frame.args[2])), frame.args[3] <span class="o">or</span> <span class="s">'[&#37;s&#37;.:-]+'</span>)
+<span class="k">end</span>
+
+<span class="k">return</span> {
+  diff = diff,
+  wikiDiff = wikiDiff,
+  main = main
+}
+</pre></div>
+</td>
+</tr></tbody>
+    </table>
+  </div>
+</body>
+</html>
