@@ -69,7 +69,8 @@ function quick_LCS(t1, t2)
   local m = #t1
   local n = #t2
 
-  -- Build matrix on demand
+  -- Build matrix on demand<br>
+  -- The following lines actually creates a dynamic 2D array
   local C = {}
   local setmetatable = setmetatable
   local mt_tbl = {
@@ -87,6 +88,8 @@ function quick_LCS(t1, t2)
     end
   }
   setmetatable(C, mt_C)
+  
+  -- dynamic programming solution
   local max = math.max
   for i = 1, m+1 do
     local ci1 = C[i+1]
@@ -179,6 +182,7 @@ function diff(old, new, separator)
     else
       local Cij1 = C[i][j-1]
       local Ci1j = C[i-1][j]
+      -- even if C[i][j-1] = C[i-1][j] = 1, we first process the insertion
       if j >= 1 and (i == 0 or Cij1 >= Ci1j) then
         rev_diff:ins(new_j)
         return get_diff(C, old, new, i, j-1)
